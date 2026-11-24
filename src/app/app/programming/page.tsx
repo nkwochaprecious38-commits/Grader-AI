@@ -1,0 +1,39 @@
+"use client";
+import { useState } from "react";
+import { Plus, Play, ShieldCheck, Trash2 } from "lucide-react";
+import { PageHead, Spinner, Modal, Field, Empty, useCol, Badge, call, useToast, useData, Confirm } from "@/components/ui";
+
+const LANGS = ["Python", "JavaScript", "Java", "C++"];
+export default function Programming() {
+  const asg = useCol("assignments"); const tests = useCol("tests"); const subs = useCol("submissions"); const st = useCol("students"); const cfg = useData<any>("/api/sandbox"); const toast = useToast();
+  const [aid, setAid] = useState(""); const [t, setT] = useState<any>(null); const [view, setView] = useState<any>(null); const [del, setDel] = useState<any>(null); const [run, setRun] = useState<string>("");
+  if (asg.loading || tests.loading) return <Spinner />;
+  const progs = asg.rows.filter((a: any) => a.type === "Programming assignment"); const a = progs.find((x: any) => x.id === aid); const ts = tests.rows.filter((x: any) => x.assignmentId === aid);
+  const list = subs.rows.filter((x: any) => x.assignmentId === aid); const pts = ts.reduce((n: number, x: any) => n + Number(x.points || 0), 0);
+  async function exec(id: string) { setRun(id); try { await call("/api/sandbox", { body: { submissionId: id } }); toast("Tests completed in the sandbox."); subs.reload(); } catch (e: any) { toast(e.message, "err"); } finally { setRun(""); } }
+  return <>
+    <PageHead title="Programming Autograder" sub="Define test cases and point values, then run submissions in an isolated sandbox."><select className="input w-64" aria-label="Programming assignment" value={aid} onChange={(e) => setAid(e.target.value)}><option value="">Choose a programming assignment</option>{progs.map((x: any) => <option key={x.id} value={x.id}>{x.title}</option>)}</select></PageHead>
+    <div className={`mb-5 flex gap-3 rounded-xl p-4 text-sm ${cfg.data?.configured ? "bg-mint-pale" : "bg-[#FCF1DC]"}`}><ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-teal" /><div>
+      <p className="font-semibold">{cfg.data?.configured ? "Sandbox service connected" : "Sandbox service not configured"}</p>
+      <p className="mt-0.5 text-muted">Student code is never run on this application server. Running tests requires an external isolated execution service (set SANDBOX_URL). Each run is requested with limits: 5 second timeout, 128 MB memory, 0.5 CPU, no network, no host filesystem. Test cases and code review work without it.</p></div></div>
+    {!progs.length ? <div className="card"><Empty title="No programming assignments" text="Create an assignment of type Programming assignment, then return here to add test cases." /></div> : !a ? <div className="card"><Empty title="Choose an assignment" /></div> : <>
+      <div className="mb-3 flex flex-wrap gap-2 text-sm"><Badge tone="teal">Language: {a.language || "Python"}</Badge><Badge>Supported: {LANGS.join(", ")}</Badge><Badge tone={pts === a.total ? "green" : "amber"}>Test points {pts} of {a.total}</Badge></div>
+      <div className="card mb-6 overflow-x-auto"><div className="flex items-center justify-between p-4"><h2 className="font-bold">Test cases</h2><button className="btn-primary btn-sm" onClick={() => setT({ assignmentId: a.id, name: "", input: "", expected: "", points: 1, hidden: false })}><Plus className="h-3.5 w-3.5" />Add test case</button></div>
+        {ts.length ? <table className="w-full min-w-[560px]"><thead><tr>{["Name", "Input", "Expected output", "Points", "Visibility", ""].map((h) => <th key={h} className="th">{h}</th>)}</tr></thead><tbody>{ts.map((x: any) => <tr key={x.id}><td className="td">{x.name}</td><td className="td font-mono text-xs">{x.input}</td><td className="td font-mono text-xs">{x.expected}</td><td className="td">{x.points}</td><td className="td">{x.hidden ? "Hidden" : "Visible"}</td><td className="td text-right"><button className="btn-ghost btn-sm" onClick={() => setT(x)}>Edit</button> <button aria-label="Delete" className="btn-ghost btn-sm" onClick={() => setDel(x)}><Trash2 className="h-3.5 w-3.5" /></button></td></tr>)}</tbody></table> : <Empty title="No test cases yet" text="Add test cases with an input and the exact expected output." />}</div>
+      <h2 className="mb-2 font-bold">Submissions</h2>
+      {list.length ? <div className="card divide-y divide-line">{list.map((x: any) => <div key={x.id} className="flex flex-wrap items-center gap-3 p-4"><div className="min-w-0 flex-1"><p className="font-medium">{st.rows.find((s: any) => s.id === x.studentId)?.name}</p><p className="text-xs text-muted">{x.autograder ? `${x.autograder.results.filter((r: any) => r.passed).length} of ${x.autograder.results.length} tests passed` : "Not run"}</p></div>
+        <button className="btn-ghost btn-sm" onClick={() => setView(x)}>Review code</button><button className="btn-dark btn-sm" disabled={!cfg.data?.configured || run === x.id} onClick={() => exec(x.id)} title={cfg.data?.configured ? "" : "Sandbox not configured"}><Play className="h-3.5 w-3.5" />{run === x.id ? "Running" : "Run tests"}</button></div>)}</div> : <div className="card"><Empty title="No submissions yet" /></div>}</>}
+    <Modal open={!!t} onClose={() => setT(null)} title={t?.id ? "Edit test case" : "Add test case"}>{t && <form className="space-y-4" onSubmit={async (e) => { e.preventDefault(); if (!t.name.trim()) return toast("Name the test.", "err"); const b = { ...t, points: Number(t.points) || 0 }; t.id ? await tests.update(t.id, b) : await tests.create(b, "Test case added."); setT(null); }}>
+      <Field label="Name"><input className="input" value={t.name} onChange={(e) => setT({ ...t, name: e.target.value })} /></Field>
+      <Field label="Input (stdin)"><textarea className="input font-mono text-xs" rows={2} value={t.input} onChange={(e) => setT({ ...t, input: e.target.value })} /></Field>
+      <Field label="Expected output"><textarea className="input font-mono text-xs" rows={2} value={t.expected} onChange={(e) => setT({ ...t, expected: e.target.value })} /></Field>
+      <div className="grid grid-cols-2 gap-4"><Field label="Points"><input type="number" min={0} step="0.5" className="input" value={t.points} onChange={(e) => setT({ ...t, points: e.target.value })} /></Field><label className="flex items-end gap-2 pb-2.5 text-sm"><input type="checkbox" className="accent-teal" checked={t.hidden} onChange={(e) => setT({ ...t, hidden: e.target.checked })} />Hidden from students</label></div>
+      <div className="flex justify-end gap-2"><button type="button" className="btn-ghost" onClick={() => setT(null)}>Cancel</button><button className="btn-primary">Save</button></div></form>}</Modal>
+    <Modal open={!!view} onClose={() => setView(null)} title="Submitted code" wide>{view && (() => { const s = subs.rows.find((x: any) => x.id === view.id) || view; return <div className="space-y-4">
+      <pre className="max-h-72 overflow-auto rounded-xl bg-ink p-4 text-xs text-white">{s.answers?.q1 || "No code was typed. Check uploaded files in Submissions."}</pre>
+      {s.autograder && <div><p className="mb-1 font-bold text-sm">Test results</p>{s.autograder.results.map((r: any) => <div key={r.testId} className="flex items-center justify-between border-t border-line py-1.5 text-sm"><span>{r.name}</span><Badge tone={r.passed ? "green" : "red"}>{r.passed ? "Passed" : "Failed"}</Badge></div>)}</div>}
+      <Field label="Inline feedback on the code"><textarea className="input" rows={3} defaultValue={s.codeFeedback || ""} id="cf" /></Field>
+      <div className="flex justify-end"><button className="btn-primary" onClick={async () => { await subs.update(s.id, { codeFeedback: (document.getElementById("cf") as HTMLTextAreaElement).value }, "Feedback saved."); }}>Save feedback</button></div></div>; })()}</Modal>
+    <Confirm open={!!del} danger title="Delete test case" text={`Delete ${del?.name}?`} confirmLabel="Delete" onClose={() => setDel(null)} onConfirm={() => tests.remove(del.id)} />
+  </>;
+}
