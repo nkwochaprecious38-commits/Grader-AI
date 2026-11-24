@@ -3,15 +3,17 @@ import { admin, BUCKET } from "./supa";
 import { HttpError } from "./http";
 
 const ALLOWED: Record<string, string> = { pdf: "application/pdf", png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", txt: "text/plain", py: "text/plain", js: "text/plain", java: "text/plain", cpp: "text/plain", c: "text/plain", ts: "text/plain", md: "text/plain" };
-export const MAX_BYTES = 10 * 1024 * 1024;
+// Hosts such as Vercel reject request bodies above about 4.5 MB, so the limit applies to one upload in total.
+export const MAX_BYTES = Number(process.env.MAX_UPLOAD_MB || 4) * 1024 * 1024;
 
 export async function saveFiles(files: File[]) {
   const out: any[] = [];
+  if (files.reduce((n, f) => n + f.size, 0) > MAX_BYTES) throw new HttpError(400, `Files in one upload must total less than ${Math.round(MAX_BYTES / 1048576)} MB. Upload large scans in several batches.`);
   if (files.length > 12) throw new HttpError(400, "Upload at most 12 files at a time.");
   for (const f of files) {
     const ext = (f.name.split(".").pop() || "").toLowerCase();
     if (!ALLOWED[ext]) throw new HttpError(400, `${f.name}: this file type is not accepted. Use PDF, PNG, JPG, WEBP or a plain text or code file.`);
-    if (f.size > MAX_BYTES) throw new HttpError(400, `${f.name} is larger than 10 MB.`);
+    if (f.size > MAX_BYTES) throw new HttpError(400, `${f.name} is larger than ${Math.round(MAX_BYTES / 1048576)} MB.`);
     const id = uid("f_") + "." + ext;
     const { error } = await admin().storage.from(BUCKET).upload(id, Buffer.from(await f.arrayBuffer()), { contentType: ALLOWED[ext], upsert: false });
     if (error) throw new HttpError(502, "File storage failed: " + error.message);
