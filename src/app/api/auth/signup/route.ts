@@ -27,8 +27,13 @@ export const POST = api(async (req) => {
   let userId: string; let created = false;
   const c = await admin().auth.admin.createUser({ email: d.email, password: d.password, email_confirm: !needsVerify, user_metadata: { full_name: d.fullName } });
   if (c.error || !c.data.user) {
-    if (!/already|registered|exists/i.test(c.error?.message || "")) throw new HttpError(400, c.error?.message || "Could not create the account.");
+    if (!/already|registered|exists/i.test(c.error?.message || "")) {
+      const st = (c.error as any)?.status;
+      if (!st || st >= 401 && st !== 422) { console.error("[auth] Supabase createUser failed:", st, c.error?.message); throw new Error("Supabase createUser failed: " + c.error?.message); }
+      throw new HttpError(400, c.error?.message || "Could not create the account.");
+    }
     const s = await anon().auth.signInWithPassword({ email: d.email, password: d.password });
+    if (s.error && ((s.error as any).status >= 500 || (s.error as any).status === 401)) { console.error("[auth] Supabase sign in failed:", s.error.message); throw new Error("Supabase sign in failed: " + s.error.message); }
     if (s.error || !s.data.user) throw new HttpError(409, EXISTS);
     userId = s.data.user.id; needsVerify = false;
     const has = !d.invite && await tx((db) => db.memberships.some((m) => m.userId === userId), false);

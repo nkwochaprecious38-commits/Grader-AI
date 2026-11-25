@@ -15,8 +15,12 @@ export const POST = api(async (req) => {
   if (wait) throw new HttpError(429, `Too many failed attempts. Try again in ${wait} minute${wait > 1 ? "s" : ""}.`);
   const r = await anon().auth.signInWithPassword({ email: d.email, password: d.password });
   if (r.error || !r.data.user) {
-    if (/not confirmed/i.test(r.error?.message || "")) throw new HttpError(403, "Please verify your email address first. Check your inbox for the verification link.");
-    failed(key); throw new HttpError(401, "Incorrect email or password.");
+    const e: any = r.error;
+    if (/not confirmed/i.test(e?.message || "")) throw new HttpError(403, "Please verify your email address first. Check your inbox for the verification link.");
+    // Only a genuine credentials failure is reported as one. Anything else is a system problem: log it for the operator.
+    if (e && (e.status === 400 || e.status === 422 || e.code === "invalid_credentials")) { failed(key); throw new HttpError(401, "Incorrect email or password."); }
+    console.error("[auth] Supabase sign in failed:", e?.status, e?.message);
+    throw new Error("Supabase sign in failed: " + (e?.message || "unknown"));
   }
   const authUser = r.data.user;
   const out = await tx((db) => {
