@@ -17,7 +17,9 @@ export function api(handler: (req: Request, ctx: any, s: Session | null) => Prom
       if (e instanceof HttpError) return json({ error: e.message }, e.status);
       if (e instanceof ZodError) return json({ error: e.issues[0]?.message || "Invalid input.", field: e.issues[0]?.path?.[0] }, 400);
       console.error(e);
-      return json({ error: "Something went wrong on our side. Please try again." }, 500);
+      // Temporary troubleshooting aid: set DEBUG_ERRORS=true to show the technical reason (keys are masked). Remove it afterwards.
+      const detail = process.env.DEBUG_ERRORS === "true" ? ` [${String(e?.message || e).replace(/eyJ[\w.-]+|sb_[\w-]+/g, "[key]").slice(0, 200)}]` : "";
+      return json({ error: "Something went wrong on our side. Please try again." + detail }, 500);
     }
   };
 }
