@@ -30,4 +30,4 @@ Tests (start the app first): `BASE=http://localhost:3000 npm test`, then `npm ru
 | LMS integrations | Directory, setup and reachability test only. Nothing is shown as active. |
 | Pricing | Three buttons link to the exact Selar URLs. No prices are invented. |
 
-Brand mark is a placeholder `G` in `src/components/Nav.tsx` and `public/favicon.svg`. Replace both when your logo is ready.
+Logo files are in `public/` (`logo.png` full, `logo-icon.png` icon only, plus favicons and app icons). The component is `Brand` in `src/components/Nav.tsx`. To change the logo, replace those files and keep the same names.

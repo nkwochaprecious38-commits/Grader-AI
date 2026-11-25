@@ -6,18 +6,21 @@ import { Menu, X } from "lucide-react";
 import { NAV_LINKS } from "@/lib/content";
 import { cx } from "./ui";
 
-/** Placeholder brand mark until the final logo is supplied. Replace public/logo.svg and this component. */
+/** Grader AI logo. Assets live in public/ (logo.png full, logo-icon.png icon only). Dark backgrounds use the icon on a white tile. */
 export function Brand({ light }: { light?: boolean }) {
   return <Link href="/" className="flex items-center gap-2.5" aria-label="Grader AI home">
-    <span className="grid h-8 w-8 place-items-center rounded-lg bg-teal font-head text-sm font-extrabold text-white">G</span>
-    <span className={cx("font-head text-lg font-extrabold", light ? "text-white" : "text-ink")}>Grader AI</span></Link>;
+    {light ? <>
+      <span className="grid h-9 w-9 place-items-center rounded-lg bg-white"><img src="/logo-icon.png" alt="" width={28} height={28} className="h-7 w-7" /></span>
+      <span className="font-head text-lg font-extrabold text-white">Grader AI</span></>
+      : <img src="/logo.png" alt="Grader AI" width={442} height={359} className="h-[58px] w-auto" />}
+  </Link>;
 }
 export default function Nav() {
   const p = usePathname(); const [open, setOpen] = useState(false);
   const link = (l: { href: string; label: string }) => <Link key={l.href} href={l.href} onClick={() => setOpen(false)} aria-current={p === l.href ? "page" : undefined}
     className={cx("rounded-lg px-3 py-2 text-sm font-medium transition hover:bg-mint-pale", p === l.href ? "text-teal-deep bg-mint-pale" : "text-charcoal")}>{l.label}</Link>;
   return <header className="sticky top-0 z-40 border-b border-line bg-white/90 backdrop-blur">
-    <div className="container-x flex h-16 items-center justify-between">
+    <div className="container-x flex h-[76px] items-center justify-between">
       <Brand />
       <nav className="hidden items-center gap-1 lg:flex" aria-label="Main">{NAV_LINKS.map(link)}</nav>
       <div className="hidden items-center gap-2 lg:flex"><Link href="/login" className="btn-ghost">Log In</Link><Link href="/signup" className="btn-primary">Get Started</Link></div>
